@@ -8,7 +8,7 @@ eval "$(ssh-agent -s)"
 
 # setup zm-build
 mkdir -p /home/build/zm/
-(cd /home/build/zm && ssh-add && git clone git@github.com:Zimbra/zm-build.git)
+(cd /home/build/zm && ssh-add && git clone git@github.com:ZimbraOS/zm-build.git)
 cp /home/build/config/config.build /home/build/zm/zm-build/config.build
 
 # build
