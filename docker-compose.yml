@@ -26,9 +26,6 @@ services:
       args:
          DOCKER_REPO_NS: '${DOCKER_REPO_NS}'
          DOCKER_BUILD_TAG: '${DOCKER_BUILD_TAG}'
-    volumes:
-      - ${LOCAL_SRC_DIR}:/code
-      - build:/build
     configs:
       - domain_name
     secrets:
@@ -42,6 +39,8 @@ services:
       - ldap.postfix_password
       - ldap.amavis_password
       - ldap.nginx_password
+    volumes:
+      - ldapvolume:/opt/zimbra/data/ldap/mdb/db
 
   zmc-mta:
     image: '${DOCKER_REPO_NS}/zmc-mta:${DOCKER_BUILD_TAG}'
@@ -53,11 +52,11 @@ services:
       args:
          DOCKER_REPO_NS: '${DOCKER_REPO_NS}'
          DOCKER_BUILD_TAG: '${DOCKER_BUILD_TAG}'
-    volumes:
-      - ${LOCAL_SRC_DIR}:/code
     configs:
       - av_notify_email
       - zimbra_ldap_userdn
+    ports:
+      - '587:587'
     secrets:
       - ca.key
       - ca.pem
@@ -85,14 +84,17 @@ services:
       replicas: 2
     healthcheck:
       test: ["CMD-SHELL", "su - zimbra -c 'zmsoap -z PingRequest' | grep -e PingResponse"]
-      interval: 10s
-      timeout: 5s
+      interval: 30s
+      timeout: 10s
       retries: 2
       start_period: 240s
     volumes:
-      - ${LOCAL_SRC_DIR}:/code
-      - blobvolume:/opt/zimbra/store
-      - tmpvolume:/opt/zimbra/data/tmp
+      - type: bind
+        source: /mnt/blockchain/blob
+        target: /opt/zimbra/store
+      - type: bind
+        source: /mnt/blockchain/tmp
+        target: /opt/zimbra/data/tmp
     configs:
       - domain_name
       - admin_account_name
@@ -125,10 +127,10 @@ services:
       args:
          DOCKER_REPO_NS: '${DOCKER_REPO_NS}'
          DOCKER_BUILD_TAG: '${DOCKER_BUILD_TAG}'
-    volumes:
-      - ${LOCAL_SRC_DIR}:/code
     secrets:
       - mysql.password
+    volumes:
+      - mdbvolume:/opt/zimbra/db/data
 
   zmc-proxy:
     image: '${DOCKER_REPO_NS}/zmc-proxy:${DOCKER_BUILD_TAG}'
@@ -167,6 +169,25 @@ services:
       - SOLR_MEMORY=${SOLR_MEMORY}
     ports:
       - "8983:8983"
+    volumes:
+      - idxvolume:/opt/solr/server/solr
+
+  zmc-account:
+    image: ${DOCKER_REPO_NS}/zmc-account:latest
+    hostname: 'zmc-account'
+    entrypoint:
+      - /app/init
+    ports:
+      - "8081:5000"
+
+  zm-x-web:
+    image: ${DOCKER_REPO_NS}/zm-x-web:latest
+    container_name: zm-x-web
+    hostname: zm-x-web
+    entrypoint:
+       - /app/init
+    ports:
+      - "443:443"
 
 secrets:
    ca.key:
@@ -231,6 +252,6 @@ configs:
      file: ./.config/zimbra_ldap_userdn
 
 volumes:
-  blobvolume: {}
-  tmpvolume: {}
-  build: {}
+  ldapvolume: {}
+  mdbvolume: {}
+  idxvolume: {}
